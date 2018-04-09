@@ -1,0 +1,8 @@
+#folders to ignore
+/.ipynb_checkpoints
+
+#files to ignore
+*.pyc
+*.save
+README_jupyter.md
+exec.py
