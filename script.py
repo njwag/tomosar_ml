@@ -24,7 +24,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 import numpy.ma as ma
-import pandas as pa
 import time
 import math
 import scipy
@@ -82,26 +81,13 @@ def simple_entropy(tmgr):
 
     return(H)
 
-
-def hist(tmgr,axis=2):
-    """The values of each 200-element vector of each pixel of the input array are 
-    distributed over 14 bins (not equally spaced). The first 7 bins include all 
-    values up to the mean while the following 7 bins include all values after the 
-    mean. Each number represents the value count that falls into this bin."""
-    
-    n = int(np.sqrt(np.size(tmgr,axis=axis)))
-    
-    bins_1 = np.linspace(0, tmgr.mean(), num=(n/2), endpoint=False)
-    bins_2 = np.linspace(tmgr.mean(), tmgr.max(), num=(n/2)+1, endpoint=True)
-    bins = np.concatenate((bins_1, bins_2), axis=0)
-    
-    h = np.zeros((tmgr.shape[0],tmgr.shape[1],len(bins)-1))
+def hist(tmgr,bins=15):
+    # histogram of log of data (due to large spread of data)
+    h = np.zeros((tmgr.shape[0],tmgr.shape[1],bins))
     for i in range(tmgr.shape[0]):
         for j in range(tmgr.shape[1]):
-            h[i,j],e = np.histogram(tmgr[i,j],bins=bins)
-    
+            h[i,j],e = np.histogram(np.log1p(tmgr[i,j]),bins=bins)
     return(h)
-
 
 def polfit(tmgr,coef=7):
     # Fitting polynomials to data using least-squares method
@@ -151,7 +137,6 @@ def getGabor(img,theta,frequency):
     return(gabor_im)
 
 # standard local statistics
-tmgr_sum = np.sum(tmgr, axis=2)
 tmgr_mean = np.mean(tmgr, axis=2)
 tmgr_std = np.std(tmgr, axis=2)
 tmgr_max = np.max(tmgr, axis=2)
@@ -170,14 +155,13 @@ def clip(tmgr):
     tmgr2[tmgr2>2*tmgr2.mean()] = 2*tmgr2.mean()
     return(tmgr2)
 
-tmgr_sum = clip(tmgr_sum)
-tmgr_mean = clip(tmgr_mean)
-tmgr_std = clip(tmgr_std)
-tmgr_max = clip(tmgr_max)
-tmgr_min = clip(tmgr_min)
-tmgr_cov = clip(tmgr_cov)
-tmgr_kurt = clip(tmgr_kurt)
-tmgr_range = clip(tmgr_range)
+#tmgr_mean = clip(tmgr_mean)
+#tmgr_std = clip(tmgr_std)
+#tmgr_max = clip(tmgr_max)
+#tmgr_min = clip(tmgr_min)
+#tmgr_cov = clip(tmgr_cov)
+#tmgr_kurt = clip(tmgr_kurt)
+#tmgr_range = clip(tmgr_range)
 
 # position of max/min value
 tmgr_argmax = np.argmax(tmgr, axis=2)
@@ -224,8 +208,7 @@ cc_gabor_var_21x21 = var.varImage(cc_gabor_mag,21)
 
 #%% Feature Vector
 
-features_vect = [tmgr_sum,
-               tmgr_mean,
+features_vect = [tmgr_mean,
                tmgr_std,
                tmgr_max,
                tmgr_min,
