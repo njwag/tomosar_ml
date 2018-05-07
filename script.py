@@ -136,6 +136,43 @@ def getGabor(img,theta,frequency):
     gabor_im = np.moveaxis(gabor_im, 0, -1)
     return(gabor_im)
 
+  
+def getLBPHist(uniform,var,bins=5,windowsize=10):
+    
+    """Get the LBP histogram for each pixel in LBP array as the 
+    joint distribution between the normalized histograms of LBP
+    uniform patterns and LBP_var as contrast measure"""
+    
+    bin_edge = np.linspace(0,uniform.max(),bins+1)
+    bin_edge_var = np.linspace(0,np.log1p(var.max()),bins+1)
+    (height,width) = uniform.shape
+    lbp_array = np.zeros((height,width,bins+3))
+    right_edge = width % windowsize
+    bottom_edge = height % windowsize
+    nr_vals = float(windowsize*windowsize)
+        
+    # Crop out the window and calculate the histogram
+    for yi in range(0,height - windowsize, windowsize):
+        for xi in range(0,width - windowsize, windowsize):
+            window = uniform[yi:yi+windowsize,xi:xi+windowsize]
+            hist = np.histogram(window,bins=bin_edge)[0]/nr_vals
+    
+            window_var = var[yi:yi+windowsize,xi:xi+windowsize]
+            hist_var = np.histogram(np.log1p(window_var),bins=bin_edge_var)[0]/nr_vals
+            
+            lbp_array[yi:yi+windowsize,xi:xi+windowsize,0:bins] = hist*hist_var
+            lbp_array[yi:yi+windowsize,xi:xi+windowsize,bins] = np.sum((hist*hist_var)**2)
+            lbp_array[yi:yi+windowsize,xi:xi+windowsize,bins+1] = window.mean()
+            lbp_array[yi:yi+windowsize,xi:xi+windowsize,bins+2] = window.std()
+    
+    # fill edges that are left over
+    if right_edge != 0:
+        lbp_array[:,-right_edge:,:] = lbp_array[:,-right_edge-1]
+    if bottom_edge != 0:    
+        lbp_array[-bottom_edge:,:] = lbp_array[-bottom_edge-1,:]
+        
+    return(lbp_array)
+
 # standard local statistics
 tmgr_mean = np.mean(tmgr, axis=2)
 tmgr_std = np.std(tmgr, axis=2)
@@ -204,6 +241,22 @@ cc_gabor_var_9x9 = var.varImage(cc_gabor_mag,9)
 cc_gabor_var_15x15 = var.varImage(cc_gabor_mag,15)
 cc_gabor_var_21x21 = var.varImage(cc_gabor_mag,21)
 
+# Local Binary Patterns
+
+radius = [2,5]
+n_points = [8*x for x in radius]
+
+lbp_uniform = []
+lbp_var = []
+
+for i in range(len(radius)):
+    lbp_uniform.append(local_binary_pattern(cc_meanVV,n_points[i],radius[i],
+                                            method='uniform'))
+    lbp_var.append(local_binary_pattern(cc_meanVV,n_points[i],radius[i],
+                                            method='var'))
+    
+lbp_2rad = getLBPHist(lbp_uniform[0],lbp_var[0])
+lbp_5rad = getLBPHist(lbp_uniform[1],lbp_var[1])
 
 
 #%% Feature Vector
@@ -233,7 +286,9 @@ features_vect = [tmgr_mean,
                cc_gabor_sum,
                cc_gabor_var_9x9,
                cc_gabor_var_15x15,
-               cc_gabor_var_21x21]
+               cc_gabor_var_21x21,
+               lbp_2rad,
+               lbp_5rad]
 
 def scale(tmgr):
     
