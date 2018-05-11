@@ -306,6 +306,12 @@ def scale(tmgr):
         
     return(tmgr_scale)
 
+features_scaled = []                 
+for i in features_vect:
+    features_scaled.append(scale(i))
+
+features_scaled = np.dstack(features_scaled)
+
 features = np.dstack(features_vect)
 
 
@@ -316,7 +322,7 @@ nb_clf = GaussianNB() # Gaussian Naive Bayes
 rf_clf = RandomForestClassifier(n_estimators=30,criterion='gini',max_features='sqrt',
                                 max_depth=None,min_samples_split=2,min_samples_leaf=1,
                                 bootstrap=True,oob_score=False,n_jobs=1)
-knn_clf = KNeighborsClassifier(n_neighbors=5,weights='uniform',algorithm='auto')
+knn_clf = KNeighborsClassifier(n_neighbors=5,weights='distance',algorithm='auto')
 svm_clf = LinearSVC(penalty='l2',loss='squared_hinge',dual=False,tol=1e-4,C=1.0,
                     multi_class='ovr',max_iter=1000)
 
@@ -356,9 +362,13 @@ for clf in classifiers:
     y_predict = []
     y_labels = []
     start = time.time()
+	if clf.__class__.__name__ == 'KNeighborsClassifier':
+        data = features_scaled
+    else:
+        data = features
     for i in it:
-        (x_train,y_train) = (features[i][labels[i] != 0],labels[i][labels[i] != 0])
-        (x_test,y_true) = (features[~i][labels[~i] != 0],labels[~i][labels[~i] != 0])
+        (x_train,y_train) = (data[i][labels[i] != 0],labels[i][labels[i] != 0])
+        (x_test,y_true) = (data[~i][labels[~i] != 0],labels[~i][labels[~i] != 0])
         
         clf.fit(x_train,y_train)
         y_predict = y_predict + list(clf.predict(x_test))
