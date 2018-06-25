@@ -52,10 +52,14 @@ tomo = '' # tomogram filename
 
 lab = '' # labels filename
 
+coh = '' # define PolSAR coherency or covariance matrix
+
 with h5.File(datapath + cov, 'r') as f:
     cc = f['data'][()]
     
 tmgr = np.load(datapath + tomo)
+
+polsar = np.load(datapath + coh)
 
 #%% Loading reference Data
 
@@ -257,6 +261,88 @@ for i in range(len(radius)):
     
 lbp_2rad = getLBPHist(lbp_uniform[0],lbp_var[0])
 lbp_5rad = getLBPHist(lbp_uniform[1],lbp_var[1])
+
+#%% PolSAR features
+
+def getCoherency(CC):
+    """ This function calculates the coherency matrix needed for the calculation
+        of evaluation parameters
+        Input: Covariance Matrix CC, size mxnx3x3
+        Output Coherency Matrix coh, size mxnx3x3
+    """
+    
+    A=np.array([[1/math.sqrt(2), 1/math.sqrt(2), 0],
+               [0, 0, 1],
+               [1/math.sqrt(2), -1*(1/math.sqrt(2)), 0]])
+    coh=[]
+    for i in range(CC.shape[0]):
+        for j in range(CC.shape[1]):
+            coh.append(np.dot(np.dot(A,CC[i][j]),np.linalg.inv(A)))
+    
+    coh = np.asarray(coh)
+    coh = np.reshape(coh, (CC.shape[0], CC.shape[1], 3, 3))
+
+    return coh
+
+def getCovariance(coh):
+    """ This function calculates the covariance matrix from the coherency matrix
+        Input: Coherency Matrix coh, size mxnx3x3
+        Output: Covariance Matrix CC, size mxnx3x3
+    """
+    
+    A=np.array([[1/math.sqrt(2), 1/math.sqrt(2), 0],
+               [0, 0, 1],
+               [1/math.sqrt(2), -1*(1/math.sqrt(2)), 0]])
+    CC=[]
+    for i in range(coh.shape[0]):
+        for j in range(coh.shape[1]):
+            CC.append(np.dot(np.dot(np.linalg.inv(A),coh[i][j]),A))
+    
+    CC = np.asarray(CC)
+    CC = np.reshape(CC, (coh.shape[0], coh.shape[1], 3, 3))
+
+    return CC
+
+def getDecompPara(coh):
+    """ This function calculates the incoherent decomposition parameters,
+        the Entropy (H), Anistropy (A) and mean alpha angle (alpha) as presented 
+        in: Praks et al.: Alternatives to Target Entropy and Alpha Angle in 
+        SAR Polarimetry and Lee et al.:Evaluation and Bias Removal of Multilook 
+        Effect on Entropy/Alpha/Anisotropy in Polarimetric SAR Decomposition
+        
+        Input: coherency matrix mxnx3x3 for homogeneous areas only
+        Output: parameters H, A and alpha
+    """
+    w, v = np.linalg.eig(coh) # w: eigenvalues; v: eigenvectors
+
+    # idx = w.argsort()[::-1]   
+    # w = w[idx]
+    # v = v[:,idx]
+    
+    subsum = w.sum(axis=-1)
+    subsum = np.repeat(subsum[:, :, np.newaxis], 3, axis=2)
+    
+    p = w/subsum # probabilities of eigenvalues
+    
+    H = np.abs(p)*(np.log(np.abs(p))/np.log(3))
+    H = -np.sum(H,axis=-1) # Entropy
+    
+    A = np.zeros((coh.shape[0],coh.shape[1])) # Anisotropy
+    
+    for yi in range(coh.shape[0]):
+        for xi in range(coh.shape[1]):
+            A[yi,xi] = (np.abs(w[yi,xi,1])-np.abs(w[yi,xi,2]))/(
+                            np.abs(w[yi,xi,1])+np.abs(w[yi,xi,2]))
+    
+
+    alpha = np.multiply(np.abs(np.arccos(v[:,:,:,0])),np.abs(p)) # alpha angle
+    alpha = np.mean(alpha,axis=-1) # mean alpha angle
+    
+    decomp = np.stack((H,alpha,A),-1)
+     
+    return(decomp)
+
+polsar_decomp = getDecompPara(polsar)
 
 
 #%% Feature Vector
