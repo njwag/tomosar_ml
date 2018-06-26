@@ -313,7 +313,7 @@ def getDecompPara(coh):
         Input: coherency matrix mxnx3x3 for homogeneous areas only
         Output: parameters H, A and alpha
     """
-    w, v = np.linalg.eig(coh) # w: eigenvalues; v: eigenvectors
+    w, v = np.linalg.eigh(coh) # w: eigenvalues; v: eigenvectors
 
     # idx = w.argsort()[::-1]   
     # w = w[idx]
@@ -343,7 +343,16 @@ def getDecompPara(coh):
     return(decomp)
 
 polsar_decomp = getDecompPara(polsar)
+polsar_intens = np.abs(np.diagonal(polsar,axis1=2,axis2=3))
 
+polsar_meanVV = polsar_intens[:,:,2]
+polsar_meanVV = np.log1p(polsar_meanVV)
+polsar_meanVV = 255*((polsar_meanVV-np.min(polsar_meanVV))/(np.max(polsar_meanVV)-np.min(polsar_meanVV)))
+polsar_meanVV = polsar_meanVV.astype(np.uint8)
+
+winSize = [5,7,15]
+polsar_glcm_list = GetGLCM(winSize,polsar_meanVV)
+polsar_glcm = np.concatenate(polsar_glcm_list,axis=2)
 
 #%% Feature Vector
 
